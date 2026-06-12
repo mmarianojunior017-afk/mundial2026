@@ -22,10 +22,12 @@ API_BASE = "https://v3.football.api-sports.io"
 WC_LEAGUE = 1       # FIFA World Cup en API-Football
 WC_SEASON = 2026
 
-HEADERS = {
-    "x-apisports-key": API_KEY,
-    "Accept": "application/json",
-}
+def get_headers():
+    """Lee la API key en tiempo de request (no al importar el módulo)."""
+    return {
+        "x-apisports-key": os.getenv("API_FOOTBALL_KEY", ""),
+        "Accept": "application/json",
+    }
 
 app = FastAPI(title="Mundial 2026 API", version="1.0.0")
 
@@ -70,14 +72,20 @@ cache = Cache()
 # ══════════════════════════════════════════
 async def api_get(endpoint: str, params: dict = None) -> dict:
     """Llama a API-Football y devuelve response['response']."""
-    if not API_KEY:
+    key = os.getenv("API_FOOTBALL_KEY", "")
+    if not key:
         raise HTTPException(status_code=500, detail="API_FOOTBALL_KEY no configurada")
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(f"{API_BASE}/{endpoint}", headers=HEADERS, params=params or {})
+    headers = get_headers()
+    print(f"[API] GET {endpoint} params={params} key={key[:6]}...", flush=True)
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.get(f"{API_BASE}/{endpoint}", headers=headers, params=params or {})
+        print(f"[API] status={resp.status_code} body={resp.text[:300]}", flush=True)
         resp.raise_for_status()
         data = resp.json()
         if data.get("errors"):
-            raise HTTPException(status_code=502, detail=str(data["errors"]))
+            error_detail = str(data["errors"])
+            print(f"[API] ERROR from API-Football: {error_detail}", flush=True)
+            raise HTTPException(status_code=502, detail=error_detail)
         return data.get("response", [])
 
 
