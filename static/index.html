@@ -126,22 +126,55 @@ a{color:inherit;text-decoration:none}
 .lu-btn:disabled{opacity:.5;cursor:wait}
 .lu-sec{display:none;padding:10px 13px;border-top:1px solid var(--border)}
 .lu-wrap{display:flex;gap:10px}
-@media(max-width:580px){.lu-wrap{flex-direction:column}}
-.lu-team{flex:1;border-radius:10px;overflow:hidden}
-.lu-hdr{background:#0d1020;padding:7px 10px;display:flex;align-items:center;gap:7px;font-size:.72rem;color:var(--t2)}
-.lu-logo{width:20px;height:20px;object-fit:contain}
-.lu-pitch{background:linear-gradient(180deg,#286014 0%,#347a1c 50%,#286014 100%);
-  padding:10px 6px;display:flex;flex-direction:column;gap:7px;min-height:190px;justify-content:space-evenly;position:relative}
-.lu-pitch::after{content:'';position:absolute;left:5%;right:5%;top:50%;height:1px;background:rgba(255,255,255,.25);pointer-events:none}
-.pitch-row{display:flex;justify-content:space-evenly;align-items:center}
-.pdot{text-align:center;max-width:44px}
-.pcirc{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.9);
-  color:#1a3a08;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;
-  margin:0 auto 2px;border:1.5px solid rgba(255,255,255,.5)}
-.pcirc.pout{background:rgba(255,100,100,.55);color:#fff;opacity:.6}
-.pcirc.pin{box-shadow:0 0 6px #00ff88}
-.pnm{font-size:.57rem;color:rgba(255,255,255,.85);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:44px}
-.lu-bench{background:#0a0d18;padding:5px 9px;font-size:.65rem;color:var(--t2);line-height:1.7}
+@media(max-width:600px){.lu-wrap{flex-direction:column}}
+.lu-team{flex:1;border-radius:10px;overflow:hidden;min-width:0}
+.lu-hdr{background:#0a0d1a;padding:8px 11px;display:flex;align-items:center;gap:8px;font-size:.73rem;color:var(--t2);border-bottom:1px solid #ffffff10}
+.lu-logo{width:22px;height:22px;object-fit:contain}
+/* PITCH */
+.lu-pitch{
+  position:relative;
+  padding:14px 6px 10px;
+  display:flex;flex-direction:column;gap:0;
+  background:
+    repeating-linear-gradient(180deg,#267318 0px,#267318 28px,#2c7d1e 28px,#2c7d1e 56px);
+  border:2px solid rgba(255,255,255,.18);
+  border-radius:0;
+  overflow:hidden;
+}
+/* Pitch border + center line + center circle using outline trick */
+.lu-pitch::before{
+  content:'';position:absolute;inset:6px;
+  border:1.5px solid rgba(255,255,255,.25);border-radius:3px;pointer-events:none;z-index:0;
+}
+.lu-pitch::after{
+  content:'';position:absolute;left:10%;right:10%;top:calc(50% - 1px);
+  height:1.5px;background:rgba(255,255,255,.25);pointer-events:none;z-index:0;
+}
+.pitch-row{
+  position:relative;z-index:1;
+  display:flex;justify-content:space-evenly;align-items:flex-end;
+  padding:6px 4px;flex:1;
+}
+.pdot{text-align:center;width:48px;flex-shrink:0}
+.pcirc{
+  width:34px;height:34px;border-radius:50%;
+  background:rgba(255,255,255,.95);color:#184010;
+  font-size:.65rem;font-weight:900;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 3px;
+  border:2px solid rgba(255,255,255,.6);
+  box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+.pcirc.pout{background:rgba(220,60,60,.7);color:#fff;border-color:rgba(255,150,150,.5)}
+.pcirc.pin{border-color:#00ff88;box-shadow:0 0 8px #00ff8880}
+.pnm{
+  font-size:.6rem;font-weight:600;
+  color:rgba(255,255,255,.92);text-align:center;
+  text-shadow:0 1px 3px rgba(0,0,0,.8);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  max-width:48px;
+}
+.lu-bench{background:#0a0d18;padding:6px 10px;font-size:.66rem;color:var(--t2);line-height:1.8;border-top:1px solid #ffffff08}
 .bch-lbl{color:var(--t3);font-weight:700}
 .bch-in{color:var(--green);font-weight:700}
 
@@ -731,35 +764,47 @@ async function fetch_(){
 /* ── LINEUP ─────────────────────────────────────────────── */
 const _luCache={};
 
-function posLine(pos){
-  const p=(pos||'').toUpperCase().replace(/-.*$/,'');
-  if(p==='GK'||p==='G') return 'gk';
-  if(['CB','CD','LB','RB','WB','DF','D','SW'].includes(p)) return 'def';
-  if(['CM','DM','AM','LM','RM','MF','M','MC'].includes(p)) return 'mid';
-  return 'fwd';
-}
-
 function pitchGrid(team){
-  const rows={gk:[],def:[],mid:[],fwd:[]};
-  (team.starters||[]).forEach(p=>rows[posLine(p.position)].push(p));
-  const ln=s=>(s||'').split(' ').slice(-1)[0]||s;
+  // Sort starters by ESPN's order field (1=GK, then defense, mid, fwd)
+  const sorted=[...(team.starters||[])].sort((a,b)=>(a.order||99)-(b.order||99));
+
+  // Parse formation "4-3-3" → [4,3,3] and build rows
+  const fParts=(team.formation||'').split('-').map(Number).filter(n=>n>0);
+  const rows=[];
+  let idx=0;
+  if(sorted.length) rows.push([sorted[idx++]]); // GK always first
+  for(const cnt of fParts){
+    const row=[];
+    for(let j=0;j<cnt&&idx<sorted.length;j++) row.push(sorted[idx++]);
+    if(row.length) rows.push(row);
+  }
+  while(idx<sorted.length){rows[rows.length-1]?.push(sorted[idx++]);}
+
+  // Display rows: reverse → attack on top, GK on bottom
+  const display=[...rows].reverse();
+
+  const ln=s=>(s||'').split(' ').slice(-1)[0]||'';
+  // Jersey number → fall back to order number if empty
+  const jn=p=>p.jersey||(p.order||'');
   const pDot=p=>`<div class="pdot">
-    <div class="pcirc${p.subbed_out?' pout':p.subbed_in?' pin':''}">${p.jersey||'?'}</div>
+    <div class="pcirc${p.subbed_out?' pout':''}">${jn(p)}</div>
     <div class="pnm">${ln(p.short||p.name)}</div>
   </div>`;
   const pRow=arr=>arr.length?`<div class="pitch-row">${arr.map(pDot).join('')}</div>`:'';
-  const bench=(team.bench||[]).slice(0,9).map(p=>{
-    const cls=p.subbed_in?' class="bch-in"':'';
-    return `<span${cls}>${p.jersey} ${ln(p.short||p.name)}</span>`;
+
+  const bench=(team.bench||[]).slice(0,10).map(p=>{
+    const jStr=p.jersey?`${p.jersey} `:'';
+    return p.subbed_in
+      ?`<span class="bch-in">${jStr}${ln(p.short||p.name)}</span>`
+      :`${jStr}${ln(p.short||p.name)}`;
   }).join(' · ');
+
   return `<div class="lu-team">
     <div class="lu-hdr">
       <img class="lu-logo" src="${team.team_logo||''}" onerror="this.style.display='none'">
       <span><strong>${team.team_abbr}</strong>&nbsp;·&nbsp;${team.formation||'–'}</span>
     </div>
-    <div class="lu-pitch">
-      ${pRow(rows.fwd)}${pRow(rows.mid)}${pRow(rows.def)}${pRow(rows.gk)}
-    </div>
+    <div class="lu-pitch">${display.map(pRow).join('')}</div>
     ${bench?`<div class="lu-bench"><span class="bch-lbl">Banca: </span>${bench}</div>`:''}
   </div>`;
 }
