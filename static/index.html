@@ -157,16 +157,19 @@ a{color:inherit;text-decoration:none}
 }
 .pdot{text-align:center;width:48px;flex-shrink:0}
 .pcirc{
-  width:34px;height:34px;border-radius:50%;
+  width:36px;height:36px;border-radius:50%;
   background:rgba(255,255,255,.95);color:#184010;
-  font-size:.65rem;font-weight:900;
+  font-size:.68rem;font-weight:900;
   display:flex;align-items:center;justify-content:center;
   margin:0 auto 3px;
   border:2px solid rgba(255,255,255,.6);
   box-shadow:0 2px 6px rgba(0,0,0,.4);
+  position:relative;
 }
-.pcirc.pout{background:rgba(220,60,60,.7);color:#fff;border-color:rgba(255,150,150,.5)}
-.pcirc.pin{border-color:#00ff88;box-shadow:0 0 8px #00ff8880}
+.pcirc.pout{opacity:.55;border-color:rgba(255,255,255,.3)}
+.pout-icon{position:absolute;bottom:-1px;right:-1px;width:13px;height:13px;
+  background:#e04040;border-radius:50%;font-size:.52rem;display:flex;
+  align-items:center;justify-content:center;color:#fff;border:1px solid #fff3;line-height:1}
 .pnm{
   font-size:.6rem;font-weight:600;
   color:rgba(255,255,255,.92);text-align:center;
@@ -174,6 +177,8 @@ a{color:inherit;text-decoration:none}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   max-width:48px;
 }
+.lu-legend{padding:4px 10px 6px;font-size:.6rem;color:var(--t3);display:flex;gap:10px}
+.lu-legend span{display:flex;align-items:center;gap:3px}
 .lu-bench{background:#0a0d18;padding:6px 10px;font-size:.66rem;color:var(--t2);line-height:1.8;border-top:1px solid #ffffff08}
 .bch-lbl{color:var(--t3);font-weight:700}
 .bch-in{color:var(--green);font-weight:700}
@@ -764,38 +769,50 @@ async function fetch_(){
 /* ── LINEUP ─────────────────────────────────────────────── */
 const _luCache={};
 
-function pitchGrid(team){
-  // Sort starters by ESPN's order field (1=GK, then defense, mid, fwd)
-  const sorted=[...(team.starters||[])].sort((a,b)=>(a.order||99)-(b.order||99));
+function initials(name){
+  const p=(name||'').trim().split(/\s+/).filter(Boolean);
+  if(!p.length)return'?';
+  if(p.length===1)return p[0].slice(0,2).toUpperCase();
+  return(p[0][0]+p[p.length-1][0]).toUpperCase();
+}
 
-  // Parse formation "4-3-3" → [4,3,3] and build rows
+function pitchGrid(team){
+  const sorted=[...(team.starters||[])].sort((a,b)=>(a.order||99)-(b.order||99));
   const fParts=(team.formation||'').split('-').map(Number).filter(n=>n>0);
   const rows=[];
   let idx=0;
-  if(sorted.length) rows.push([sorted[idx++]]); // GK always first
+  if(sorted.length) rows.push([sorted[idx++]]);
   for(const cnt of fParts){
     const row=[];
     for(let j=0;j<cnt&&idx<sorted.length;j++) row.push(sorted[idx++]);
     if(row.length) rows.push(row);
   }
   while(idx<sorted.length){rows[rows.length-1]?.push(sorted[idx++]);}
-
-  // Display rows: reverse → attack on top, GK on bottom
   const display=[...rows].reverse();
 
   const ln=s=>(s||'').split(' ').slice(-1)[0]||'';
-  // Jersey number → fall back to order number if empty
-  const jn=p=>p.jersey||(p.order||'');
-  const pDot=p=>`<div class="pdot">
-    <div class="pcirc${p.subbed_out?' pout':''}">${jn(p)}</div>
-    <div class="pnm">${ln(p.short||p.name)}</div>
-  </div>`;
+  // Use jersey if ESPN provides it, otherwise use 2-letter initials
+  const jn=p=>p.jersey?p.jersey:initials(p.name);
+
+  const pDot=p=>{
+    const subIcon=p.subbed_out?`<span class="pout-icon">↙</span>`:'';
+    return `<div class="pdot">
+      <div class="pcirc${p.subbed_out?' pout':''}">${jn(p)}${subIcon}</div>
+      <div class="pnm">${ln(p.short||p.name)}</div>
+    </div>`;
+  };
   const pRow=arr=>arr.length?`<div class="pitch-row">${arr.map(pDot).join('')}</div>`:'';
+
+  const hasSubs=team.starters?.some(p=>p.subbed_out)||team.bench?.some(p=>p.subbed_in);
+  const legend=hasSubs?`<div class="lu-legend">
+    <span><span style="opacity:.5;font-size:.8rem">●</span> ↙ Salió</span>
+    <span><span style="color:var(--green);font-size:.8rem">●</span> ↗ Entró</span>
+  </div>`:'';
 
   const bench=(team.bench||[]).slice(0,10).map(p=>{
     const jStr=p.jersey?`${p.jersey} `:'';
     return p.subbed_in
-      ?`<span class="bch-in">${jStr}${ln(p.short||p.name)}</span>`
+      ?`<span class="bch-in">↗ ${jStr}${ln(p.short||p.name)}</span>`
       :`${jStr}${ln(p.short||p.name)}`;
   }).join(' · ');
 
@@ -806,6 +823,7 @@ function pitchGrid(team){
     </div>
     <div class="lu-pitch">${display.map(pRow).join('')}</div>
     ${bench?`<div class="lu-bench"><span class="bch-lbl">Banca: </span>${bench}</div>`:''}
+    ${legend}
   </div>`;
 }
 
