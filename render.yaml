@@ -4,8 +4,5 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
-    envVars:
-      - key: API_FOOTBALL_KEY
-        sync: false          # Lo ingresas manualmente en el dashboard de Render
     autoDeploy: true
-    plan: free               # Cambia a "starter" ($7/mes) para evitar cold starts
+    plan: free
