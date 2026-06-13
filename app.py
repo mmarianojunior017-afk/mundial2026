@@ -87,11 +87,13 @@ def team_data(t: dict) -> dict:
         "score": t.get("score", ""),
         "winner": t.get("winner", False),
         "stats": {
-            "possession": stat(t.get("statistics", []), "possessionPct"),
-            "shots":      stat(t.get("statistics", []), "totalShots"),
-            "sog":        stat(t.get("statistics", []), "shotsOnTarget"),
-            "corners":    stat(t.get("statistics", []), "wonCorners"),
-            "fouls":      stat(t.get("statistics", []), "foulsCommitted"),
+            "possession":   stat(t.get("statistics", []), "possessionPct"),
+            "shots":        stat(t.get("statistics", []), "totalShots"),
+            "sog":          stat(t.get("statistics", []), "shotsOnTarget"),
+            "shot_assists": stat(t.get("statistics", []), "shotAssists"),
+            "corners":      stat(t.get("statistics", []), "wonCorners"),
+            "fouls":        stat(t.get("statistics", []), "foulsCommitted"),
+            "goal_assists": stat(t.get("statistics", []), "goalAssists"),
         }
     }
 
