@@ -102,16 +102,48 @@ a{color:inherit;text-decoration:none}
 /* venue */
 .mc-venue{padding:4px 13px 7px;font-size:.65rem;color:var(--t3)}
 
-/* events */
-.mc-evs{padding:7px 13px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px}
-.ev{display:inline-flex;align-items:center;gap:3px;font-size:.7rem;padding:3px 8px;border-radius:20px}
-.ev-goal{background:#00c46a13;color:var(--green);border:1px solid #00c46a30}
-.ev-own_goal{background:#ff666614;color:#ff8899;border:1px solid #ff666630}
-.ev-penalty{background:#00c46a13;color:#44ffaa;border:1px solid #00c46a30}
-.ev-yellow_card{background:#f5c51813;color:var(--yellow);border:1px solid #f5c51830}
-.ev-red_card{background:#ff334413;color:var(--red);border:1px solid #ff334430}
-.ev-min{opacity:.55;font-size:.64rem}
-.ev-side{opacity:.45;font-size:.64rem}
+/* TWO-COLUMN EVENTS */
+.mc-ev2{padding:7px 13px;border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1px 1fr}
+.ev-col{padding:3px 5px}
+.ev-col-hdr{font-size:.6rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+.ev-col.right .ev-col-hdr{text-align:right}
+.ev-col.right .ev-ent{flex-direction:row-reverse}
+.ev-mdl{background:var(--border);width:1px}
+.ev-ent{display:flex;align-items:center;gap:3px;font-size:.7rem;padding:2px 0}
+.ev-ent.ev-goal,.ev-ent.ev-penalty{color:var(--green)}
+.ev-ent.ev-own_goal{color:#ff8899}
+.ev-ent.ev-yellow_card{color:var(--yellow)}
+.ev-ent.ev-red_card{color:var(--red)}
+.ev-ent.ev-sub{color:var(--t2)}
+.ev-min{opacity:.5;font-size:.63rem}
+.ev-nil{color:var(--t3);font-size:.68rem}
+
+/* LINEUP */
+.lu-btn{display:block;width:calc(100% - 26px);margin:8px 13px 2px;padding:7px;
+  background:var(--bg);border:1px solid var(--border2);border-radius:8px;
+  color:var(--t2);font-size:.72rem;font-weight:600;cursor:pointer;text-align:center;transition:.15s}
+.lu-btn:hover{border-color:var(--green);color:var(--green)}
+.lu-btn:disabled{opacity:.5;cursor:wait}
+.lu-sec{display:none;padding:10px 13px;border-top:1px solid var(--border)}
+.lu-wrap{display:flex;gap:10px}
+@media(max-width:580px){.lu-wrap{flex-direction:column}}
+.lu-team{flex:1;border-radius:10px;overflow:hidden}
+.lu-hdr{background:#0d1020;padding:7px 10px;display:flex;align-items:center;gap:7px;font-size:.72rem;color:var(--t2)}
+.lu-logo{width:20px;height:20px;object-fit:contain}
+.lu-pitch{background:linear-gradient(180deg,#286014 0%,#347a1c 50%,#286014 100%);
+  padding:10px 6px;display:flex;flex-direction:column;gap:7px;min-height:190px;justify-content:space-evenly;position:relative}
+.lu-pitch::after{content:'';position:absolute;left:5%;right:5%;top:50%;height:1px;background:rgba(255,255,255,.25);pointer-events:none}
+.pitch-row{display:flex;justify-content:space-evenly;align-items:center}
+.pdot{text-align:center;max-width:44px}
+.pcirc{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.9);
+  color:#1a3a08;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 2px;border:1.5px solid rgba(255,255,255,.5)}
+.pcirc.pout{background:rgba(255,100,100,.55);color:#fff;opacity:.6}
+.pcirc.pin{box-shadow:0 0 6px #00ff88}
+.pnm{font-size:.57rem;color:rgba(255,255,255,.85);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:44px}
+.lu-bench{background:#0a0d18;padding:5px 9px;font-size:.65rem;color:var(--t2);line-height:1.7}
+.bch-lbl{color:var(--t3);font-weight:700}
+.bch-in{color:var(--green);font-weight:700}
 
 /* stats */
 .mc-stats{padding:8px 13px 11px;border-top:1px solid var(--border)}
@@ -381,15 +413,22 @@ function card(m){
     ?`<div class="score-num">${m.home.score??'–'}&thinsp;-&thinsp;${m.away.score??'–'}</div>${live?`<div class="score-time" style="color:var(--red)">${m.status.clock}</div>`:''}`
     :`<div class="score-vs">VS</div><div class="score-time">${mxDate(m.date)}</div>`;
 
-  // Events
-  const evIco={goal:'⚽',own_goal:'⚽🔄',penalty:'⚽(P)',yellow_card:'🟨',red_card:'🟥'};
+  // Two-column events
+  const evIco={goal:'⚽',own_goal:'⚽↩',penalty:'⚽(P)',yellow_card:'🟨',red_card:'🟥',sub:'🔄'};
   let evHtml='';
   if(m.events&&m.events.length){
-    const pills=m.events.map(e=>{
-      const side=e.team_id===m.home.id?m.home.abbr:m.away.abbr;
-      return `<span class="ev ev-${e.type}">${evIco[e.type]||''} <span class="ev-min">${e.minute}</span> ${e.player||side}${e.player?` <span class="ev-side">[${side}]</span>`:''}  </span>`;
-    }).join('');
-    evHtml=`<div class="mc-evs">${pills}</div>`;
+    const hEvs=m.events.filter(e=>e.team_id===m.home.id);
+    const aEvs=m.events.filter(e=>e.team_id===m.away.id);
+    const rE=e=>{
+      const nm=e.player?e.player.split(' ').slice(-1)[0]:'';
+      const si=e.type==='sub'&&e.player_in?` ↗${e.player_in.split(' ').slice(-1)[0]}`:'';
+      return `<div class="ev-ent ev-${e.type}">${evIco[e.type]||'•'} <span class="ev-min">${e.minute}</span> ${nm}${si}</div>`;
+    };
+    evHtml=`<div class="mc-ev2">
+      <div class="ev-col"><div class="ev-col-hdr">${m.home.abbr}</div>${hEvs.length?hEvs.map(rE).join(''):'<div class="ev-nil">–</div>'}</div>
+      <div class="ev-mdl"></div>
+      <div class="ev-col right"><div class="ev-col-hdr">${m.away.abbr}</div>${aEvs.length?aEvs.map(rE).join(''):'<div class="ev-nil">–</div>'}</div>
+    </div>`;
   }
 
   // Stats
@@ -409,11 +448,14 @@ function card(m){
   }
 
   const venStr=[m.venue,m.city,m.country].filter(Boolean).join(' · ');
+  const hasLU=done||live;
+  const luBtn=hasLU?`<button class="lu-btn" id="lu-btn-${m.id}" onclick="toggleLU('${m.id}')">👥 Ver Alineación</button>`:'';
+  const luSec=hasLU?`<div class="lu-sec" id="lu-sec-${m.id}"></div>`:'';
   return `<div class="${cls}" id="match-${m.id}">
     <div class="mc-top"><span class="mc-rnd">${grpLbl||rnd.l}</span>${sbadge(m)}</div>
     <div class="mc-main">${tblk(m.home,'l')}<div class="mc-scr">${scr}</div>${tblk(m.away,'r')}</div>
     <div class="mc-venue">🏟 ${venStr}</div>
-    ${evHtml}${statsHtml}
+    ${evHtml}${statsHtml}${luBtn}${luSec}
   </div>`;
 }
 
@@ -684,6 +726,73 @@ async function fetch_(){
   document.getElementById('loading').style.display='none';
   clearTimeout(timer);
   timer=setTimeout(fetch_,allMatches.some(isLive)?30000:120000);
+}
+
+/* ── LINEUP ─────────────────────────────────────────────── */
+const _luCache={};
+
+function posLine(pos){
+  const p=(pos||'').toUpperCase().replace(/-.*$/,'');
+  if(p==='GK'||p==='G') return 'gk';
+  if(['CB','CD','LB','RB','WB','DF','D','SW'].includes(p)) return 'def';
+  if(['CM','DM','AM','LM','RM','MF','M','MC'].includes(p)) return 'mid';
+  return 'fwd';
+}
+
+function pitchGrid(team){
+  const rows={gk:[],def:[],mid:[],fwd:[]};
+  (team.starters||[]).forEach(p=>rows[posLine(p.position)].push(p));
+  const ln=s=>(s||'').split(' ').slice(-1)[0]||s;
+  const pDot=p=>`<div class="pdot">
+    <div class="pcirc${p.subbed_out?' pout':p.subbed_in?' pin':''}">${p.jersey||'?'}</div>
+    <div class="pnm">${ln(p.short||p.name)}</div>
+  </div>`;
+  const pRow=arr=>arr.length?`<div class="pitch-row">${arr.map(pDot).join('')}</div>`:'';
+  const bench=(team.bench||[]).slice(0,9).map(p=>{
+    const cls=p.subbed_in?' class="bch-in"':'';
+    return `<span${cls}>${p.jersey} ${ln(p.short||p.name)}</span>`;
+  }).join(' · ');
+  return `<div class="lu-team">
+    <div class="lu-hdr">
+      <img class="lu-logo" src="${team.team_logo||''}" onerror="this.style.display='none'">
+      <span><strong>${team.team_abbr}</strong>&nbsp;·&nbsp;${team.formation||'–'}</span>
+    </div>
+    <div class="lu-pitch">
+      ${pRow(rows.fwd)}${pRow(rows.mid)}${pRow(rows.def)}${pRow(rows.gk)}
+    </div>
+    ${bench?`<div class="lu-bench"><span class="bch-lbl">Banca: </span>${bench}</div>`:''}
+  </div>`;
+}
+
+async function toggleLU(mid){
+  const btn=document.getElementById(`lu-btn-${mid}`);
+  const sec=document.getElementById(`lu-sec-${mid}`);
+  if(sec.style.display==='block'){
+    sec.style.display='none';
+    btn.textContent='👥 Ver Alineación';
+    return;
+  }
+  btn.textContent='⏳ Cargando...';btn.disabled=true;
+  try{
+    if(!_luCache[mid]){
+      const r=await fetch(`/api/match/${mid}/lineup`);
+      if(!r.ok)throw new Error();
+      _luCache[mid]=await r.json();
+    }
+    const d=_luCache[mid];
+    if(!d||!d.length||!d[0].starters||!d[0].starters.length){
+      sec.innerHTML='<p style="text-align:center;color:var(--t3);font-size:.75rem;padding:10px">Alineación no disponible aún</p>';
+    } else {
+      sec.innerHTML=`<div class="lu-wrap">${d.map(pitchGrid).join('')}</div>`;
+    }
+    sec.style.display='block';
+    btn.textContent='👥 Ocultar Alineación';
+  } catch(e){
+    sec.innerHTML='<p style="text-align:center;color:var(--t3);font-size:.75rem;padding:10px">No disponible</p>';
+    sec.style.display='block';
+    btn.textContent='👥 Ver Alineación';
+  }
+  btn.disabled=false;
 }
 
 fetch_();
