@@ -210,8 +210,49 @@ async def get_lineup(mid: str):
             r.raise_for_status()
             data = r.json()
 
+        # ── Extract real substitution events from summary plays ─────────
+        sub_out: set = set()
+        sub_in:  set = set()
+
+        # Try summary-level plays array (ESPN soccer summary often has this)
+        for play in data.get("plays", []):
+            type_id   = str(play.get("type", {}).get("id", ""))
+            type_text = play.get("type", {}).get("text", "").lower()
+            if "substitution" in type_text or type_id in ("58",):
+                athl = play.get("athletesInvolved", [])
+                if athl:       sub_out.add(athl[0].get("displayName", ""))
+                if len(athl)>1: sub_in.add(athl[1].get("displayName", ""))
+
+        # Also check header > competitions > details as fallback
+        for comp in (data.get("header", {})
+                         .get("competitions", [])):
+            for d in comp.get("details", []):
+                type_text = d.get("type", {}).get("text", "").lower()
+                if "substitution" in type_text:
+                    athl = d.get("athletesInvolved", [])
+                    if athl:       sub_out.add(athl[0].get("displayName", ""))
+                    if len(athl)>1: sub_in.add(athl[1].get("displayName", ""))
+
+        # Also check the scoreboard cache for this match
+        try:
+            evs = await fetch_all_events()
+            raw = next((e for e in evs if e["id"] == mid), None)
+            if raw:
+                comp0 = raw["competitions"][0]
+                for d in comp0.get("details", []):
+                    type_text = d.get("type", {}).get("text", "").lower()
+                    if "substitution" in type_text:
+                        athl = d.get("athletesInvolved", [])
+                        if athl:       sub_out.add(athl[0].get("displayName", ""))
+                        if len(athl)>1: sub_in.add(athl[1].get("displayName", ""))
+        except Exception:
+            pass
+
+        have_events = bool(sub_out or sub_in)
+
+        # ── Build roster ────────────────────────────────────────────────
         rosters = data.get("rosters", [])
-        result = []
+        result  = []
 
         for t in rosters:
             team   = t.get("team", {})
@@ -221,13 +262,23 @@ async def get_lineup(mid: str):
             for p in roster:
                 ath = p.get("athlete", {})
                 pos = ath.get("position", {})
+                name = ath.get("displayName", "")
+
+                # Use event-derived subs when available; fall back to ESPN flags
+                if have_events:
+                    s_out = name in sub_out
+                    s_in  = name in sub_in
+                else:
+                    s_out = p.get("subbedOut", False)
+                    s_in  = p.get("subbedIn",  False)
+
                 entry = {
-                    "name":       ath.get("displayName", ""),
+                    "name":       name,
                     "short":      ath.get("shortName", ""),
                     "jersey":     ath.get("jersey", ""),
                     "position":   pos.get("abbreviation", ""),
-                    "subbed_in":  p.get("subbedIn",  False),
-                    "subbed_out": p.get("subbedOut", False),
+                    "subbed_in":  s_in,
+                    "subbed_out": s_out,
                     "order":      p.get("order", 99),
                 }
                 if p.get("starter"):
