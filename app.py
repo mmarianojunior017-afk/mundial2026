@@ -108,23 +108,32 @@ def transform_event(ev: dict) -> dict:
 
     events_out = []
     for d in comp.get("details", []):
-        athletes = d.get("athletesInvolved", [])
-        player   = athletes[0].get("displayName", "") if athletes else ""
-        jersey   = athletes[0].get("jersey", "")     if athletes else ""
+        athletes  = d.get("athletesInvolved", [])
+        player    = athletes[0].get("displayName", "") if athletes else ""
+        jersey    = athletes[0].get("jersey", "")     if athletes else ""
+        type_text = d.get("type", {}).get("text", "").lower()
+        minute    = d.get("clock", {}).get("displayValue", "")
+        team_id   = d.get("team", {}).get("id", "")
+
         if d.get("scoringPlay"):
             etype = "own_goal" if d.get("ownGoal") else "penalty" if d.get("penaltyKick") else "goal"
         elif d.get("redCard"):
             etype = "red_card"
         elif d.get("yellowCard"):
             etype = "yellow_card"
+        elif "substitution" in type_text or "sub" == type_text:
+            player_in = athletes[1].get("displayName", "") if len(athletes) > 1 else ""
+            events_out.append({
+                "type": "sub", "minute": minute,
+                "player": player, "player_in": player_in,
+                "jersey": jersey, "team_id": team_id,
+            })
+            continue
         else:
             continue
         events_out.append({
-            "type":    etype,
-            "minute":  d.get("clock", {}).get("displayValue", ""),
-            "player":  player,
-            "jersey":  jersey,
-            "team_id": d.get("team", {}).get("id", ""),
+            "type": etype, "minute": minute,
+            "player": player, "jersey": jersey, "team_id": team_id,
         })
 
     return {
@@ -186,6 +195,62 @@ async def get_semifinals():
         or "semi" in e.get("season", {}).get("slug", "").lower()
     ]
     return [transform_event(e) for e in filtered]
+
+@app.get("/api/match/{mid}/lineup")
+async def get_lineup(mid: str):
+    cached = cache_get(f"lineup_{mid}")
+    if cached is not None:
+        return cached
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(
+                "https://site.api.espn.com/apis/site/v2/sports/soccer/FIFA.World/summary",
+                params={"event": mid}
+            )
+            r.raise_for_status()
+            data = r.json()
+
+        rosters = data.get("rosters", [])
+        result = []
+
+        for t in rosters:
+            team   = t.get("team", {})
+            roster = t.get("roster", [])
+            starters, bench = [], []
+
+            for p in roster:
+                ath = p.get("athlete", {})
+                pos = ath.get("position", {})
+                entry = {
+                    "name":       ath.get("displayName", ""),
+                    "short":      ath.get("shortName", ""),
+                    "jersey":     ath.get("jersey", ""),
+                    "position":   pos.get("abbreviation", ""),
+                    "subbed_in":  p.get("subbedIn",  False),
+                    "subbed_out": p.get("subbedOut", False),
+                    "order":      p.get("order", 99),
+                }
+                if p.get("starter"):
+                    starters.append(entry)
+                else:
+                    bench.append(entry)
+
+            starters.sort(key=lambda x: x["order"])
+
+            result.append({
+                "team_id":   team.get("id", ""),
+                "team_name": team.get("displayName", ""),
+                "team_abbr": team.get("abbreviation", ""),
+                "team_logo": team.get("logo", ""),
+                "formation": t.get("formation", ""),
+                "starters":  starters,
+                "bench":     bench,
+            })
+
+        cache_set(f"lineup_{mid}", result)
+        return result
+    except Exception as e:
+        raise HTTPException(502, str(e))
 
 @app.get("/api/standings")
 async def get_standings():
