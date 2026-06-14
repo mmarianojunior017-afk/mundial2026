@@ -833,12 +833,10 @@ function pitchGrid(team){
       const r=p.rating??0;
       const cls=r>=7.5?'rtg-hi':r>=6.5?'rtg-md':'rtg-lo';
       const stats=[];
-      if(p.goals>0)       stats.push(`⚽${p.goals}`);
-      if(p.assists>0)     stats.push(`🎯${p.assists}`);
-      if(p.shots_on_target>0) stats.push(`👟${p.shots_on_target}`);
-      if(p.yellow_cards>0)stats.push(`🟨${p.yellow_cards}`);
-      if(p.red_cards>0)   stats.push(`🟥${p.red_cards}`);
-      stats.push(`${p.minutes||0}'`);
+      if(p.goals>0)        stats.push(`⚽${p.goals}`);
+      if(p.assists>0)      stats.push(`🎯${p.assists}`);
+      if(p.yellow_cards>0) stats.push(`🟨${p.yellow_cards}`);
+      if(p.red_cards>0)    stats.push(`🟥${p.red_cards}`);
       return `<div class="perf-row">
         <span class="rtg-badge ${cls}">${r.toFixed(1)}</span>
         <span class="perf-name">${ln(p.short||p.name)}</span>
