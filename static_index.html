@@ -493,7 +493,9 @@ function round(m){
 // Detecta partidos con equipos aún no definidos
 const isUndetermined=m=>{
   const h=(m.home?.name||'').toLowerCase(), a=(m.away?.name||'').toLowerCase();
-  return h.includes('place')||a.includes('place')||h.includes(' place')||a.includes(' place');
+  const und=s=>s.includes('place')||s.includes('winner')||s.includes('group ')
+              ||s.includes('runner')||s.includes('3rd')||s.includes('tbd');
+  return und(h)||und(a);
 };
 
 function cntEv(m,type){return(m.events||[]).filter(e=>e.type===type).length;}
@@ -785,16 +787,6 @@ function renderSemis(all){
 
   html+=`<div class="bracket">
     <div class="br-col">${bMatch(sf1,'SEMI 1')}</div>
-    <div class="br-conn"><div class="bc-t"></div><div class="bc-b"></div></div>
-    <div style="display:flex;align-items:center">
-      <div class="br-final">
-        <div class="brf-lbl">🏆 GRAN FINAL · 19 Jul<br>MetLife Stadium · NY/NJ</div>
-        <div class="br-team"><span class="br-tbd">Ganador Semi 1</span><span class="br-sc">–</span></div>
-        <div class="brf-vs">VS</div>
-        <div class="br-team"><span class="br-tbd">Ganador Semi 2</span><span class="br-sc">–</span></div>
-      </div>
-    </div>
-    <div class="br-conn2"><div class="bc2-t"></div><div class="bc2-b"></div></div>
     <div class="br-col">${bMatch(sf2,'SEMI 2')}</div>
   </div>`;
 
@@ -990,49 +982,4 @@ function pitchGrid(team){
   }
 
   return `<div class="lu-team">
-    <div class="lu-hdr">
-      <img class="lu-logo" src="${team.team_logo||''}" onerror="this.style.display='none'">
-      <span><strong>${team.team_abbr}</strong>&nbsp;·&nbsp;${team.formation||'–'}</span>
-    </div>
-    <div class="lu-pitch">${display.map(pRow).join('')}</div>
-    ${bench?`<div class="lu-bench"><span class="bch-lbl">Banca: </span>${bench}</div>`:''}
-    ${legend}
-    ${perfHtml}
-  </div>`;
-}
-
-async function toggleLU(mid){
-  const btn=document.getElementById(`lu-btn-${mid}`);
-  const sec=document.getElementById(`lu-sec-${mid}`);
-  if(sec.style.display==='block'){
-    sec.style.display='none';
-    btn.textContent='👥 Ver Alineación';
-    return;
-  }
-  btn.textContent='⏳ Cargando...';btn.disabled=true;
-  try{
-    if(!_luCache[mid]){
-      const r=await fetch(`/api/match/${mid}/lineup`);
-      if(!r.ok)throw new Error();
-      _luCache[mid]=await r.json();
-    }
-    const d=_luCache[mid];
-    if(!d||!d.length||!d[0].starters||!d[0].starters.length){
-      sec.innerHTML='<p style="text-align:center;color:var(--t3);font-size:.75rem;padding:10px">Alineación no disponible aún</p>';
-    } else {
-      sec.innerHTML=`<div class="lu-wrap">${d.map(pitchGrid).join('')}</div>`;
-    }
-    sec.style.display='block';
-    btn.textContent='👥 Ocultar Alineación';
-  } catch(e){
-    sec.innerHTML='<p style="text-align:center;color:var(--t3);font-size:.75rem;padding:10px">No disponible</p>';
-    sec.style.display='block';
-    btn.textContent='👥 Ver Alineación';
-  }
-  btn.disabled=false;
-}
-
-fetch_();
-</script>
-</body>
-</html>
+   
