@@ -250,59 +250,102 @@ async def get_lineup(mid: str):
 
         have_events = bool(sub_out or sub_in)
 
-        # ── Player rating from boxscore ─────────────────────────────────
-        def calc_rating(p: dict):
-            mins = p.get("minutes", 0)
-            if not mins:
-                return None
-            s = 6.0
-            s += p.get("goals", 0)          * 1.5
-            s += p.get("assists", 0)        * 0.8
-            sot = max(0, p.get("shots_on_target", 0) - p.get("goals", 0))
-            s += sot                        * 0.25
-            s += p.get("shots", 0)          * 0.05
-            s -= p.get("fouls_committed", 0)* 0.15
-            s -= p.get("yellow_cards", 0)   * 0.5
-            s -= p.get("red_cards", 0)      * 2.0
+        # ── Derive per-player stats from match events ───────────────────
+        # ESPN doesn't reliably expose boxscore.players for World Cup;
+        # instead we mine header.competitions.details + plays for events.
+
+        # player_stats[name] = {goals, assists, yellow_cards, red_cards, own_goals, team_id}
+        player_stats: dict = {}
+
+        def _ps(name: str, team_id: str) -> dict:
+            if name not in player_stats:
+                player_stats[name] = {
+                    "goals": 0, "assists": 0,
+                    "yellow_cards": 0, "red_cards": 0,
+                    "own_goals": 0, "team_id": team_id,
+                }
+            return player_stats[name]
+
+        # Gather all detail sources
+        all_details: list = []
+        for comp in data.get("header", {}).get("competitions", []):
+            all_details.extend(comp.get("details", []))
+
+        for d in all_details:
+            athl      = d.get("athletesInvolved", [])
+            team_id   = d.get("team", {}).get("id", "")
+            if not athl:
+                continue
+            pname = athl[0].get("displayName", "")
+            if not pname:
+                continue
+            ps = _ps(pname, team_id)
+
+            if d.get("scoringPlay"):
+                if d.get("ownGoal"):
+                    ps["own_goals"] += 1
+                else:
+                    ps["goals"] += 1
+                    # Second athlete = assist
+                    if len(athl) > 1:
+                        aname = athl[1].get("displayName", "")
+                        if aname:
+                            _ps(aname, team_id)["assists"] += 1
+            elif d.get("yellowCard"):
+                ps["yellow_cards"] += 1
+            elif d.get("redCard"):
+                ps["red_cards"] += 1
+
+        # Sub timing → approximate minutes played
+        # sub_timing[name] = minute number (int)
+        sub_out_min: dict = {}   # starter subbed out → played X min
+        sub_in_min:  dict = {}   # bench player subbed in → played 90-X min
+
+        def _minute(val: str) -> int:
+            try:
+                return int(str(val).split("+")[0].replace("'","").strip())
+            except Exception:
+                return 0
+
+        for d in all_details:
+            type_text = d.get("type", {}).get("text", "").lower()
+            if "substitution" in type_text:
+                athl = d.get("athletesInvolved", [])
+                min_val = _minute(d.get("clock", {}).get("displayValue", "0"))
+                if athl:
+                    sub_out_min[athl[0].get("displayName", "")] = min_val
+                if len(athl) > 1:
+                    sub_in_min[athl[1].get("displayName", "")] = min_val
+
+        for play in data.get("plays", []):
+            type_text = play.get("type", {}).get("text", "").lower()
+            type_id   = str(play.get("type", {}).get("id", ""))
+            if "substitution" in type_text or type_id == "58":
+                athl = play.get("athletesInvolved", [])
+                min_val = _minute(play.get("clock", {}).get("displayValue", "0"))
+                if athl:
+                    sub_out_min[athl[0].get("displayName", "")] = min_val
+                if len(athl) > 1:
+                    sub_in_min[athl[1].get("displayName", "")] = min_val
+
+        def calc_rating(name: str, starter: bool) -> float | None:
+            if starter:
+                mins = sub_out_min.get(name, 90)
+            else:
+                if name not in sub_in_min:
+                    return None   # never entered
+                mins = 90 - sub_in_min.get(name, 90)
+
+            ps = player_stats.get(name, {})
+            s  = 6.0
+            s += ps.get("goals",        0) * 1.5
+            s += ps.get("assists",      0) * 0.8
+            s -= ps.get("yellow_cards", 0) * 0.5
+            s -= ps.get("red_cards",    0) * 2.0
+            s -= ps.get("own_goals",    0) * 1.0
             if mins < 60:
                 s -= 0.3
             return round(max(1.0, min(10.0, s)), 1)
-
-        # Parse boxscore.players → {team_id: [player_stat,...]}
-        bx_players: dict = {}
-        for bp in data.get("boxscore", {}).get("players", []):
-            tid  = bp.get("team", {}).get("id", "")
-            plist: list = []
-            for sg in bp.get("statistics", []):
-                col_names = sg.get("names", [])
-                for ad in sg.get("athletes", []):
-                    ath  = ad.get("athlete", {})
-                    raw  = ad.get("stats", [])
-                    sm: dict = {}
-                    for i, cn in enumerate(col_names):
-                        if i < len(raw):
-                            try:
-                                sm[cn] = float(str(raw[i]).replace("%","").replace("-","0") or "0")
-                            except Exception:
-                                sm[cn] = 0.0
-                    ps = {
-                        "name":            ath.get("displayName", ""),
-                        "short":           ath.get("shortName", ""),
-                        "jersey":          ath.get("jersey", ""),
-                        "position":        ath.get("position", {}).get("abbreviation", ""),
-                        "starter":         ad.get("starter", False),
-                        "minutes":         int(sm.get("MIN", sm.get("MP", 0)) or 0),
-                        "goals":           int(sm.get("G",   0) or 0),
-                        "assists":         int(sm.get("A",   0) or 0),
-                        "shots":           int(sm.get("SH",  0) or 0),
-                        "shots_on_target": int(sm.get("ST",  0) or 0),
-                        "fouls_committed": int(sm.get("FC",  0) or 0),
-                        "yellow_cards":    int(sm.get("YC",  0) or 0),
-                        "red_cards":       int(sm.get("RC",  0) or 0),
-                    }
-                    ps["rating"] = calc_rating(ps)
-                    plist.append(ps)
-            bx_players[tid] = plist
 
         # ── Build roster ────────────────────────────────────────────────
         rosters = data.get("rosters", [])
@@ -314,9 +357,10 @@ async def get_lineup(mid: str):
             starters, bench = [], []
 
             for p in roster:
-                ath = p.get("athlete", {})
-                pos = ath.get("position", {})
-                name = ath.get("displayName", "")
+                ath     = p.get("athlete", {})
+                pos     = ath.get("position", {})
+                name    = ath.get("displayName", "")
+                is_strt = p.get("starter", False)
 
                 # Use event-derived subs when available; fall back to ESPN flags
                 if have_events:
@@ -326,6 +370,9 @@ async def get_lineup(mid: str):
                     s_out = p.get("subbedOut", False)
                     s_in  = p.get("subbedIn",  False)
 
+                rtg = calc_rating(name, is_strt)
+                ps  = player_stats.get(name, {})
+
                 entry = {
                     "name":       name,
                     "short":      ath.get("shortName", ""),
@@ -334,21 +381,39 @@ async def get_lineup(mid: str):
                     "subbed_in":  s_in,
                     "subbed_out": s_out,
                     "order":      p.get("order", 99),
+                    "rating":     rtg,
+                    "goals":      ps.get("goals", 0),
+                    "assists":    ps.get("assists", 0),
+                    "yellow_cards": ps.get("yellow_cards", 0),
+                    "red_cards":  ps.get("red_cards", 0),
                 }
-                if p.get("starter"):
+                if is_strt:
                     starters.append(entry)
                 else:
                     bench.append(entry)
 
             starters.sort(key=lambda x: x["order"])
 
-            tid = team.get("id", "")
-            tp_raw = bx_players.get(tid, [])
+            # Top players = those with a rating (played), sorted desc
+            all_players = starters + bench
             top_players = sorted(
-                [p for p in tp_raw if p.get("rating") is not None],
-                key=lambda p: p["rating"], reverse=True
+                [p for p in all_players if p.get("rating") is not None],
+                key=lambda p: (p["rating"], p.get("goals",0), p.get("assists",0)),
+                reverse=True
             )[:5]
 
+            # Simplify top_players for frontend (drop pitch-layout fields)
+            top_out = [{
+                "name":         p["name"],
+                "short":        p["short"],
+                "rating":       p["rating"],
+                "goals":        p["goals"],
+                "assists":      p["assists"],
+                "yellow_cards": p["yellow_cards"],
+                "red_cards":    p["red_cards"],
+            } for p in top_players]
+
+            tid = team.get("id", "")
             result.append({
                 "team_id":    tid,
                 "team_name":  team.get("displayName", ""),
@@ -357,13 +422,42 @@ async def get_lineup(mid: str):
                 "formation":  t.get("formation", ""),
                 "starters":   starters,
                 "bench":      bench,
-                "top_players": top_players,
+                "top_players": top_out,
             })
 
         cache_set(f"lineup_{mid}", result)
         return result
     except Exception as e:
         raise HTTPException(502, str(e))
+
+@app.get("/api/match/{mid}/bxdebug")
+async def bx_debug(mid: str):
+    async with httpx.AsyncClient(timeout=20) as client:
+        r = await client.get(
+            "https://site.api.espn.com/apis/site/v2/sports/soccer/FIFA.World/summary",
+            params={"event": mid}
+        )
+        r.raise_for_status()
+        data = r.json()
+    bx = data.get("boxscore", {}).get("players", [])
+    out = []
+    for bp in bx:
+        tid = bp.get("team", {}).get("id", "")
+        tname = bp.get("team", {}).get("displayName", "")
+        for sg in bp.get("statistics", []):
+            names = sg.get("names", [])
+            keys  = sg.get("keys", [])
+            labels= sg.get("labels", [])
+            sample = []
+            for ad in sg.get("athletes", [])[:3]:
+                sample.append({
+                    "name": ad.get("athlete", {}).get("displayName",""),
+                    "starter": ad.get("starter"),
+                    "stats": ad.get("stats", []),
+                })
+            out.append({"team": tname, "tid": tid, "names": names,
+                        "keys": keys, "labels": labels, "sample": sample})
+    return out
 
 @app.get("/api/standings")
 async def get_standings():
