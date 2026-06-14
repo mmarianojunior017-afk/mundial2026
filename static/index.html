@@ -182,6 +182,15 @@ a{color:inherit;text-decoration:none}
 .lu-bench{background:#0a0d18;padding:6px 10px;font-size:.66rem;color:var(--t2);line-height:1.8;border-top:1px solid #ffffff08}
 .bch-lbl{color:var(--t3);font-weight:700}
 .bch-in{color:var(--green);font-weight:700}
+.lu-perf{background:#0a0d18;padding:6px 10px 8px;border-top:1px solid #ffffff0c}
+.perf-lbl{font-size:.58rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.perf-row{display:flex;align-items:center;gap:5px;padding:2px 0;font-size:.68rem}
+.rtg-badge{min-width:30px;padding:1px 5px;border-radius:4px;font-weight:800;font-size:.65rem;text-align:center}
+.rtg-hi{background:#00c46a22;color:#00c46a;border:1px solid #00c46a44}
+.rtg-md{background:#f0a80022;color:#f0a800;border:1px solid #f0a80044}
+.rtg-lo{background:#8892aa18;color:#8892aa;border:1px solid #8892aa33}
+.perf-name{flex:1;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.perf-stats{font-size:.6rem;color:var(--t3);white-space:nowrap}
 
 /* stats */
 .mc-stats{padding:8px 13px 11px;border-top:1px solid var(--border)}
@@ -816,6 +825,29 @@ function pitchGrid(team){
       :`${jStr}${ln(p.short||p.name)}`;
   }).join(' · ');
 
+  // Performance / rating section
+  const topPlayers=(team.top_players||[]);
+  let perfHtml='';
+  if(topPlayers.length){
+    const rows=topPlayers.map(p=>{
+      const r=p.rating??0;
+      const cls=r>=7.5?'rtg-hi':r>=6.5?'rtg-md':'rtg-lo';
+      const stats=[];
+      if(p.goals>0)       stats.push(`⚽${p.goals}`);
+      if(p.assists>0)     stats.push(`🎯${p.assists}`);
+      if(p.shots_on_target>0) stats.push(`👟${p.shots_on_target}`);
+      if(p.yellow_cards>0)stats.push(`🟨${p.yellow_cards}`);
+      if(p.red_cards>0)   stats.push(`🟥${p.red_cards}`);
+      stats.push(`${p.minutes||0}'`);
+      return `<div class="perf-row">
+        <span class="rtg-badge ${cls}">${r.toFixed(1)}</span>
+        <span class="perf-name">${ln(p.short||p.name)}</span>
+        <span class="perf-stats">${stats.join(' ')}</span>
+      </div>`;
+    }).join('');
+    perfHtml=`<div class="lu-perf"><div class="perf-lbl">⭐ Rendimiento</div>${rows}</div>`;
+  }
+
   return `<div class="lu-team">
     <div class="lu-hdr">
       <img class="lu-logo" src="${team.team_logo||''}" onerror="this.style.display='none'">
@@ -824,6 +856,7 @@ function pitchGrid(team){
     <div class="lu-pitch">${display.map(pRow).join('')}</div>
     ${bench?`<div class="lu-bench"><span class="bch-lbl">Banca: </span>${bench}</div>`:''}
     ${legend}
+    ${perfHtml}
   </div>`;
 }
 
