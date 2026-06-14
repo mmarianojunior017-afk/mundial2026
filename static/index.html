@@ -834,6 +834,7 @@ function pitchGrid(team){
       const cls=r>=7.5?'rtg-hi':r>=6.5?'rtg-md':'rtg-lo';
       const stats=[];
       if(p.goals>0)        stats.push(`⚽${p.goals}`);
+      if(p.own_goals>0)    stats.push(`⚽(PP)${p.own_goals}`);
       if(p.assists>0)      stats.push(`🎯${p.assists}`);
       if(p.yellow_cards>0) stats.push(`🟨${p.yellow_cards}`);
       if(p.red_cards>0)    stats.push(`🟥${p.red_cards}`);
