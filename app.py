@@ -251,55 +251,22 @@ async def get_lineup(mid: str):
         have_events = bool(sub_out or sub_in)
 
         # ── Derive per-player stats from match events ───────────────────
-        # ESPN doesn't reliably expose boxscore.players for World Cup;
-        # instead we mine header.competitions.details + plays for events.
+        # Primary source: scoreboard cache (same data that drives the events
+        # column in the UI — reliably populated for all finished matches).
+        # Secondary: summary header details + plays (backup).
 
-        # player_stats[name] = {goals, assists, yellow_cards, red_cards, own_goals, team_id}
-        player_stats: dict = {}
+        player_stats: dict = {}   # name → {goals, assists, yellow_cards, red_cards, own_goals}
+        sub_out_min:  dict = {}   # name → minute subbed off (starter)
+        sub_in_min:   dict = {}   # name → minute subbed on  (bench)
 
-        def _ps(name: str, team_id: str) -> dict:
+        def _ps(name: str) -> dict:
             if name not in player_stats:
                 player_stats[name] = {
                     "goals": 0, "assists": 0,
                     "yellow_cards": 0, "red_cards": 0,
-                    "own_goals": 0, "team_id": team_id,
+                    "own_goals": 0,
                 }
             return player_stats[name]
-
-        # Gather all detail sources
-        all_details: list = []
-        for comp in data.get("header", {}).get("competitions", []):
-            all_details.extend(comp.get("details", []))
-
-        for d in all_details:
-            athl      = d.get("athletesInvolved", [])
-            team_id   = d.get("team", {}).get("id", "")
-            if not athl:
-                continue
-            pname = athl[0].get("displayName", "")
-            if not pname:
-                continue
-            ps = _ps(pname, team_id)
-
-            if d.get("scoringPlay"):
-                if d.get("ownGoal"):
-                    ps["own_goals"] += 1
-                else:
-                    ps["goals"] += 1
-                    # Second athlete = assist
-                    if len(athl) > 1:
-                        aname = athl[1].get("displayName", "")
-                        if aname:
-                            _ps(aname, team_id)["assists"] += 1
-            elif d.get("yellowCard"):
-                ps["yellow_cards"] += 1
-            elif d.get("redCard"):
-                ps["red_cards"] += 1
-
-        # Sub timing → approximate minutes played
-        # sub_timing[name] = minute number (int)
-        sub_out_min: dict = {}   # starter subbed out → played X min
-        sub_in_min:  dict = {}   # bench player subbed in → played 90-X min
 
         def _minute(val: str) -> int:
             try:
@@ -307,26 +274,63 @@ async def get_lineup(mid: str):
             except Exception:
                 return 0
 
-        for d in all_details:
-            type_text = d.get("type", {}).get("text", "").lower()
-            if "substitution" in type_text:
-                athl = d.get("athletesInvolved", [])
-                min_val = _minute(d.get("clock", {}).get("displayValue", "0"))
-                if athl:
-                    sub_out_min[athl[0].get("displayName", "")] = min_val
-                if len(athl) > 1:
-                    sub_in_min[athl[1].get("displayName", "")] = min_val
+        def _parse_details(details: list) -> None:
+            for d in details:
+                athl      = d.get("athletesInvolved", [])
+                type_text = d.get("type", {}).get("text", "").lower()
+                if not athl:
+                    continue
+                pname = athl[0].get("displayName", "")
+                if not pname:
+                    continue
 
+                if d.get("scoringPlay"):
+                    if d.get("ownGoal"):
+                        _ps(pname)["own_goals"] += 1
+                    else:
+                        _ps(pname)["goals"] += 1
+                        if len(athl) > 1:
+                            aname = athl[1].get("displayName", "")
+                            if aname:
+                                _ps(aname)["assists"] += 1
+                elif d.get("yellowCard"):
+                    _ps(pname)["yellow_cards"] += 1
+                elif d.get("redCard"):
+                    _ps(pname)["red_cards"] += 1
+                elif "substitution" in type_text:
+                    min_val = _minute(d.get("clock", {}).get("displayValue", "0"))
+                    sub_out_min[pname] = min_val
+                    if len(athl) > 1:
+                        iname = athl[1].get("displayName", "")
+                        if iname:
+                            sub_in_min[iname] = min_val
+
+        # 1) Scoreboard cache (primary — this is what populates the events column)
+        try:
+            evs     = await fetch_all_events()
+            raw_ev  = next((e for e in evs if e["id"] == mid), None)
+            if raw_ev:
+                _parse_details(raw_ev["competitions"][0].get("details", []))
+        except Exception:
+            pass
+
+        # 2) Summary header details (secondary)
+        for comp in data.get("header", {}).get("competitions", []):
+            _parse_details(comp.get("details", []))
+
+        # 3) Plays array (substitution timing fallback)
         for play in data.get("plays", []):
             type_text = play.get("type", {}).get("text", "").lower()
             type_id   = str(play.get("type", {}).get("id", ""))
             if "substitution" in type_text or type_id == "58":
-                athl = play.get("athletesInvolved", [])
+                athl    = play.get("athletesInvolved", [])
                 min_val = _minute(play.get("clock", {}).get("displayValue", "0"))
                 if athl:
                     sub_out_min[athl[0].get("displayName", "")] = min_val
                 if len(athl) > 1:
-                    sub_in_min[athl[1].get("displayName", "")] = min_val
+                    iname = athl[1].get("displayName", "")
+                    if iname:
+                        sub_in_min[iname] = min_val
 
         def calc_rating(name: str, starter: bool) -> float | None:
             if starter:
@@ -346,6 +350,13 @@ async def get_lineup(mid: str):
             if mins < 60:
                 s -= 0.3
             return round(max(1.0, min(10.0, s)), 1)
+
+        def has_notable(ps: dict) -> bool:
+            return (ps.get("goals", 0) > 0
+                    or ps.get("assists", 0) > 0
+                    or ps.get("yellow_cards", 0) > 0
+                    or ps.get("red_cards", 0) > 0
+                    or ps.get("own_goals", 0) > 0)
 
         # ── Build roster ────────────────────────────────────────────────
         rosters = data.get("rosters", [])
@@ -394,15 +405,20 @@ async def get_lineup(mid: str):
 
             starters.sort(key=lambda x: x["order"])
 
-            # Top players = those with a rating (played), sorted desc
+            # Top players = only those with notable events, sorted by rating
             all_players = starters + bench
+            notable = [
+                p for p in all_players
+                if p.get("rating") is not None
+                and has_notable(player_stats.get(p["name"], {}))
+            ]
             top_players = sorted(
-                [p for p in all_players if p.get("rating") is not None],
+                notable,
                 key=lambda p: (p["rating"], p.get("goals",0), p.get("assists",0)),
                 reverse=True
-            )[:5]
+            )[:6]
 
-            # Simplify top_players for frontend (drop pitch-layout fields)
+            # Simplify for frontend
             top_out = [{
                 "name":         p["name"],
                 "short":        p["short"],
@@ -411,6 +427,7 @@ async def get_lineup(mid: str):
                 "assists":      p["assists"],
                 "yellow_cards": p["yellow_cards"],
                 "red_cards":    p["red_cards"],
+                "own_goals":    player_stats.get(p["name"], {}).get("own_goals", 0),
             } for p in top_players]
 
             tid = team.get("id", "")
