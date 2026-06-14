@@ -836,7 +836,6 @@ function pitchGrid(team){
       if(p.clean_sheet)    stats.push(`🧤 CS`);
       if(p.goals>0)        stats.push(`⚽${p.goals}`);
       if(p.own_goals>0)    stats.push(`⚽PP`);
-      if(p.assists>0)      stats.push(`🎯${p.assists}`);
       if(p.yellow_cards>0) stats.push(`🟨${p.yellow_cards>1?'×'+p.yellow_cards:''}`);
       if(p.red_cards>0)    stats.push(`🟥`);
       return `<div class="perf-row">
