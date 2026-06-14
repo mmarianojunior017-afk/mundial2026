@@ -250,6 +250,60 @@ async def get_lineup(mid: str):
 
         have_events = bool(sub_out or sub_in)
 
+        # ── Player rating from boxscore ─────────────────────────────────
+        def calc_rating(p: dict):
+            mins = p.get("minutes", 0)
+            if not mins:
+                return None
+            s = 6.0
+            s += p.get("goals", 0)          * 1.5
+            s += p.get("assists", 0)        * 0.8
+            sot = max(0, p.get("shots_on_target", 0) - p.get("goals", 0))
+            s += sot                        * 0.25
+            s += p.get("shots", 0)          * 0.05
+            s -= p.get("fouls_committed", 0)* 0.15
+            s -= p.get("yellow_cards", 0)   * 0.5
+            s -= p.get("red_cards", 0)      * 2.0
+            if mins < 60:
+                s -= 0.3
+            return round(max(1.0, min(10.0, s)), 1)
+
+        # Parse boxscore.players → {team_id: [player_stat,...]}
+        bx_players: dict = {}
+        for bp in data.get("boxscore", {}).get("players", []):
+            tid  = bp.get("team", {}).get("id", "")
+            plist: list = []
+            for sg in bp.get("statistics", []):
+                col_names = sg.get("names", [])
+                for ad in sg.get("athletes", []):
+                    ath  = ad.get("athlete", {})
+                    raw  = ad.get("stats", [])
+                    sm: dict = {}
+                    for i, cn in enumerate(col_names):
+                        if i < len(raw):
+                            try:
+                                sm[cn] = float(str(raw[i]).replace("%","").replace("-","0") or "0")
+                            except Exception:
+                                sm[cn] = 0.0
+                    ps = {
+                        "name":            ath.get("displayName", ""),
+                        "short":           ath.get("shortName", ""),
+                        "jersey":          ath.get("jersey", ""),
+                        "position":        ath.get("position", {}).get("abbreviation", ""),
+                        "starter":         ad.get("starter", False),
+                        "minutes":         int(sm.get("MIN", sm.get("MP", 0)) or 0),
+                        "goals":           int(sm.get("G",   0) or 0),
+                        "assists":         int(sm.get("A",   0) or 0),
+                        "shots":           int(sm.get("SH",  0) or 0),
+                        "shots_on_target": int(sm.get("ST",  0) or 0),
+                        "fouls_committed": int(sm.get("FC",  0) or 0),
+                        "yellow_cards":    int(sm.get("YC",  0) or 0),
+                        "red_cards":       int(sm.get("RC",  0) or 0),
+                    }
+                    ps["rating"] = calc_rating(ps)
+                    plist.append(ps)
+            bx_players[tid] = plist
+
         # ── Build roster ────────────────────────────────────────────────
         rosters = data.get("rosters", [])
         result  = []
@@ -288,14 +342,22 @@ async def get_lineup(mid: str):
 
             starters.sort(key=lambda x: x["order"])
 
+            tid = team.get("id", "")
+            tp_raw = bx_players.get(tid, [])
+            top_players = sorted(
+                [p for p in tp_raw if p.get("rating") is not None],
+                key=lambda p: p["rating"], reverse=True
+            )[:5]
+
             result.append({
-                "team_id":   team.get("id", ""),
-                "team_name": team.get("displayName", ""),
-                "team_abbr": team.get("abbreviation", ""),
-                "team_logo": team.get("logo", ""),
-                "formation": t.get("formation", ""),
-                "starters":  starters,
-                "bench":     bench,
+                "team_id":    tid,
+                "team_name":  team.get("displayName", ""),
+                "team_abbr":  team.get("abbreviation", ""),
+                "team_logo":  team.get("logo", ""),
+                "formation":  t.get("formation", ""),
+                "starters":   starters,
+                "bench":      bench,
+                "top_players": top_players,
             })
 
         cache_set(f"lineup_{mid}", result)
