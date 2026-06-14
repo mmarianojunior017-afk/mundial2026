@@ -332,7 +332,7 @@ async def get_lineup(mid: str):
                     if iname:
                         sub_in_min[iname] = min_val
 
-        def calc_rating(name: str, starter: bool) -> float | None:
+        def calc_rating(name: str, starter: bool, clean_sheet: bool = False) -> float | None:
             if starter:
                 mins = sub_out_min.get(name, 90)
             else:
@@ -347,6 +347,8 @@ async def get_lineup(mid: str):
             s -= ps.get("yellow_cards", 0) * 0.5
             s -= ps.get("red_cards",    0) * 2.0
             s -= ps.get("own_goals",    0) * 1.0
+            if clean_sheet:
+                s += 1.2
             if mins < 60:
                 s -= 0.3
             return round(max(1.0, min(10.0, s)), 1)
@@ -430,7 +432,11 @@ async def get_lineup(mid: str):
                 }
                 if is_strt:
                     starters.append(entry)
-                    if pos_abbr == "GK" and gk_starter is None:
+                    if gk_starter is None and (
+                        pos_abbr in ("GK", "G", "GKP", "PO", "PT")
+                        or "GK" in pos_abbr
+                        or "GOAL" in pos_abbr.upper()
+                    ):
                         gk_starter = entry
                 else:
                     bench.append(entry)
@@ -439,6 +445,16 @@ async def get_lineup(mid: str):
 
             # Is there a clean sheet for this team?
             team_has_cs = tid in clean_sheet_teams
+
+            # If no GK found by position, fall back to first starter (order=0)
+            if gk_starter is None and starters:
+                gk_starter = starters[0]
+
+            # Recalculate GK rating with CS bonus
+            if team_has_cs and gk_starter is not None:
+                gk_starter["rating"] = calc_rating(
+                    gk_starter["name"], True, clean_sheet=True
+                )
 
             # Top players = notable events + clean-sheet GK
             all_players = starters + bench
