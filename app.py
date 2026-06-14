@@ -351,12 +351,39 @@ async def get_lineup(mid: str):
                 s -= 0.3
             return round(max(1.0, min(10.0, s)), 1)
 
-        def has_notable(ps: dict) -> bool:
-            return (ps.get("goals", 0) > 0
+        def has_notable(ps: dict, clean_sheet: bool = False) -> bool:
+            return (clean_sheet
+                    or ps.get("goals", 0) > 0
                     or ps.get("assists", 0) > 0
                     or ps.get("yellow_cards", 0) > 0
                     or ps.get("red_cards", 0) > 0
                     or ps.get("own_goals", 0) > 0)
+
+        # ── Determine clean-sheet teams from scoreboard scores ───────────
+        # clean_sheet_teams: set of team IDs that conceded 0 goals
+        clean_sheet_teams: set = set()
+        try:
+            evs    = await fetch_all_events()
+            raw_ev = next((e for e in evs if e["id"] == mid), None)
+            if raw_ev:
+                comps = raw_ev["competitions"][0].get("competitors", [])
+                for c in comps:
+                    try:
+                        if int(c.get("score", "1") or "1") == 0:
+                            # This team scored 0 → the OTHER team has a clean sheet
+                            pass
+                    except Exception:
+                        pass
+                # Better: team has clean sheet if opponent scored 0
+                scores = {c.get("team", {}).get("id", ""): int(c.get("score", "99") or "99")
+                          for c in comps}
+                for c in comps:
+                    tid_c = c.get("team", {}).get("id", "")
+                    opp_score = [v for k, v in scores.items() if k != tid_c]
+                    if opp_score and opp_score[0] == 0:
+                        clean_sheet_teams.add(tid_c)
+        except Exception:
+            pass
 
         # ── Build roster ────────────────────────────────────────────────
         rosters = data.get("rosters", [])
@@ -364,14 +391,17 @@ async def get_lineup(mid: str):
 
         for t in rosters:
             team   = t.get("team", {})
+            tid    = team.get("id", "")
             roster = t.get("roster", [])
             starters, bench = [], []
+            gk_starter = None   # track starting GK for clean sheet
 
             for p in roster:
                 ath     = p.get("athlete", {})
                 pos     = ath.get("position", {})
                 name    = ath.get("displayName", "")
                 is_strt = p.get("starter", False)
+                pos_abbr = pos.get("abbreviation", "").upper()
 
                 # Use event-derived subs when available; fall back to ESPN flags
                 if have_events:
@@ -385,40 +415,48 @@ async def get_lineup(mid: str):
                 ps  = player_stats.get(name, {})
 
                 entry = {
-                    "name":       name,
-                    "short":      ath.get("shortName", ""),
-                    "jersey":     ath.get("jersey", ""),
-                    "position":   pos.get("abbreviation", ""),
-                    "subbed_in":  s_in,
-                    "subbed_out": s_out,
-                    "order":      p.get("order", 99),
-                    "rating":     rtg,
-                    "goals":      ps.get("goals", 0),
-                    "assists":    ps.get("assists", 0),
+                    "name":         name,
+                    "short":        ath.get("shortName", ""),
+                    "jersey":       ath.get("jersey", ""),
+                    "position":     pos_abbr,
+                    "subbed_in":    s_in,
+                    "subbed_out":   s_out,
+                    "order":        p.get("order", 99),
+                    "rating":       rtg,
+                    "goals":        ps.get("goals", 0),
+                    "assists":      ps.get("assists", 0),
                     "yellow_cards": ps.get("yellow_cards", 0),
-                    "red_cards":  ps.get("red_cards", 0),
+                    "red_cards":    ps.get("red_cards", 0),
                 }
                 if is_strt:
                     starters.append(entry)
+                    if pos_abbr == "GK" and gk_starter is None:
+                        gk_starter = entry
                 else:
                     bench.append(entry)
 
             starters.sort(key=lambda x: x["order"])
 
-            # Top players = only those with notable events, sorted by rating
+            # Is there a clean sheet for this team?
+            team_has_cs = tid in clean_sheet_teams
+
+            # Top players = notable events + clean-sheet GK
             all_players = starters + bench
-            notable = [
-                p for p in all_players
-                if p.get("rating") is not None
-                and has_notable(player_stats.get(p["name"], {}))
-            ]
-            top_players = sorted(
+            notable = []
+            for p in all_players:
+                if p.get("rating") is None:
+                    continue
+                ps = player_stats.get(p["name"], {})
+                is_cs = (team_has_cs and p is gk_starter)
+                if has_notable(ps, clean_sheet=is_cs):
+                    notable.append((p, is_cs))
+
+            notable_sorted = sorted(
                 notable,
-                key=lambda p: (p["rating"], p.get("goals",0), p.get("assists",0)),
+                key=lambda x: (x[0]["rating"], x[0].get("goals",0), x[0].get("assists",0)),
                 reverse=True
             )[:6]
 
-            # Simplify for frontend
             top_out = [{
                 "name":         p["name"],
                 "short":        p["short"],
@@ -428,17 +466,17 @@ async def get_lineup(mid: str):
                 "yellow_cards": p["yellow_cards"],
                 "red_cards":    p["red_cards"],
                 "own_goals":    player_stats.get(p["name"], {}).get("own_goals", 0),
-            } for p in top_players]
+                "clean_sheet":  cs,
+            } for p, cs in notable_sorted]
 
-            tid = team.get("id", "")
             result.append({
-                "team_id":    tid,
-                "team_name":  team.get("displayName", ""),
-                "team_abbr":  team.get("abbreviation", ""),
-                "team_logo":  team.get("logo", ""),
-                "formation":  t.get("formation", ""),
-                "starters":   starters,
-                "bench":      bench,
+                "team_id":     tid,
+                "team_name":   team.get("displayName", ""),
+                "team_abbr":   team.get("abbreviation", ""),
+                "team_logo":   team.get("logo", ""),
+                "formation":   t.get("formation", ""),
+                "starters":    starters,
+                "bench":       bench,
                 "top_players": top_out,
             })
 
