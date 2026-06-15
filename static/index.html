@@ -310,7 +310,75 @@ a{color:inherit;text-decoration:none}
   .groups-grid{grid-template-columns:1fr}
   .bracket{flex-direction:column;align-items:center}
   .br-conn,.br-conn2{display:none}
+  .fn-card{flex-direction:column;gap:16px}
+  .fn-team{min-width:unset;width:100%}
 }
+
+/* ══ FINAL TAB ══════════════════════════════════════════ */
+.tab-final{color:var(--gold)!important;font-weight:800!important}
+.tab-final.active{border-bottom-color:var(--gold)!important;color:var(--gold)!important}
+
+.fn-hero{
+  background:linear-gradient(160deg,#09090f 0%,#0d0b1e 40%,#140d00 100%);
+  min-height:100vh;padding:28px 16px 40px;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+  position:relative;overflow:hidden;
+}
+.fn-hero::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 50% at 50% 0%,#f0a80018 0%,transparent 70%);
+  pointer-events:none;
+}
+.fn-stars{
+  font-size:.85rem;color:#f0a80088;letter-spacing:8px;
+  animation:starPulse 3s ease-in-out infinite;
+}
+@keyframes starPulse{0%,100%{opacity:.5;letter-spacing:8px}50%{opacity:1;letter-spacing:12px}}
+.fn-title{
+  font-size:2rem;font-weight:900;letter-spacing:3px;
+  background:linear-gradient(135deg,#f0a800,#ffe066,#f0a800);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  text-align:center;text-transform:uppercase;
+}
+.fn-subtitle{font-size:.72rem;color:#f0a80099;letter-spacing:4px;text-transform:uppercase;margin-top:-6px}
+.fn-trophy{font-size:3.5rem;filter:drop-shadow(0 0 20px #f0a80066);animation:trophyBounce 2s ease-in-out infinite}
+@keyframes trophyBounce{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-8px) scale(1.05)}}
+.fn-card{
+  display:flex;align-items:center;gap:20px;
+  background:rgba(255,255,255,.04);border:1px solid #f0a80033;
+  border-radius:20px;padding:24px 28px;width:100%;max-width:560px;
+  box-shadow:0 0 40px #f0a80011,inset 0 1px 0 #f0a80022;
+}
+.fn-team{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px}
+.fn-logo{width:72px;height:72px;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(0,0,0,.5))}
+.fn-tname{font-size:.9rem;font-weight:700;color:var(--text);text-align:center}
+.fn-tabbr{font-size:.68rem;color:var(--t3);letter-spacing:2px;text-transform:uppercase}
+.fn-winner .fn-tname{color:var(--gold)}
+.fn-winner .fn-logo{filter:drop-shadow(0 0 16px #f0a80099)}
+.fn-crown{font-size:.7rem;font-weight:800;color:var(--gold);letter-spacing:1px;text-transform:uppercase;
+  background:#f0a80022;border:1px solid #f0a80066;padding:3px 10px;border-radius:20px;
+  animation:crownGlow 1.5s ease-in-out infinite}
+@keyframes crownGlow{0%,100%{box-shadow:0 0 8px #f0a80066}50%{box-shadow:0 0 20px #f0a800cc}}
+.fn-tbd{color:var(--t3);font-style:italic;font-size:.85rem}
+.fn-score-wrap{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.fn-score{font-size:3rem;font-weight:900;color:var(--gold);min-width:44px;text-align:center;
+  text-shadow:0 0 20px #f0a80088}
+.fn-dash{font-size:2rem;color:var(--t3)}
+.fn-vs-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0}
+.fn-vs-txt{font-size:1.4rem;font-weight:900;color:#f0a80066;letter-spacing:3px}
+.fn-datetime{font-size:.68rem;color:var(--t3);text-align:center;line-height:1.5}
+.fn-venue{font-size:.7rem;color:var(--t3);text-align:center}
+.fn-live{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700;color:var(--red);
+  background:#ff334422;border:1px solid #ff334466;padding:6px 16px;border-radius:20px}
+.fn-pending{text-align:center;font-size:.9rem;color:var(--t2);line-height:1.8;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;
+  padding:20px 24px;max-width:360px}
+.fn-pending strong{color:var(--gold)}
+.fn-events{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;max-width:480px}
+.fn-ev{font-size:.72rem;padding:3px 10px;border-radius:20px;background:rgba(255,255,255,.05);
+  border:1px solid var(--border)}
+.fn-ev-home{border-color:#00c46a33;color:var(--green)}
+.fn-ev-away{border-color:#4090ff33;color:var(--blue)}
 </style>
 </head>
 <body>
@@ -334,6 +402,7 @@ a{color:inherit;text-decoration:none}
   <button class="tab-btn" data-tab="mexico">🇲🇽 México</button>
   <button class="tab-btn" data-tab="grupos">📊 Grupos</button>
   <button class="tab-btn" data-tab="semifinales">🏆 Semis</button>
+  <button class="tab-btn tab-final" data-tab="final">⚽ Final</button>
 </nav>
 
 <!-- CONTENT -->
@@ -344,11 +413,11 @@ a{color:inherit;text-decoration:none}
       <button class="fbtn active" data-f="HOY">HOY</button>
       <button class="fbtn" data-f="TODOS">Todos</button>
       <button class="fbtn" data-f="GRUPOS">Grupos</button>
-      <button class="fbtn" data-f="32AVOS">32avos</button>
-      <button class="fbtn" data-f="16AVOS">16avos</button>
+      <button class="fbtn" data-f="32AVOS">16avos</button>
+      <button class="fbtn" data-f="16AVOS">Octavos</button>
       <button class="fbtn" data-f="CUARTOS">Cuartos</button>
       <button class="fbtn" data-f="SEMIS">Semis</button>
-      <button class="fbtn" data-f="FINAL">Final</button>
+      <button class="fbtn" data-f="3LUGAR">3er Lugar</button>
     </div>
     <div id="cal-list"></div>
   </div>
@@ -358,6 +427,8 @@ a{color:inherit;text-decoration:none}
   <div id="panel-grupos" class="panel"></div>
   <!-- SEMIS -->
   <div id="panel-semifinales" class="panel"></div>
+  <!-- FINAL -->
+  <div id="panel-final" class="panel"></div>
 </main>
 
 <!-- LOADING -->
@@ -393,18 +464,39 @@ const isMxC  = m => ['mexico','méxico'].includes((m.country||'').toLowerCase())
 const isAtl  = m => ATL_KW.some(k=>(m.venue||'').toLowerCase().includes(k));
 
 function round(m){
+  // Primary: use ESPN's season slug (most reliable)
+  const s=(m.slug||'').toLowerCase();
+  const g=(m.group||'').toLowerCase(); // altGameNote e.g. "FIFA World Cup, Group J"
+  if(s==='group-stage')                       return{l:'Fase de Grupos',k:'grp'};
+  if(s==='round-of-32')                       return{l:'16avos de Final',k:'r32'};
+  if(s==='round-of-16')                       return{l:'Octavos de Final',k:'r16'};
+  if(s.includes('quarter'))                   return{l:'Cuartos de Final',k:'qf'};
+  if(s==='semifinal'||s.includes('semi-'))    return{l:'Semifinales',k:'sf'};
+  if(s.includes('third')||s.includes('3rd'))  return{l:'Tercer Lugar',k:'3rd'};
+  if(s==='final')                             return{l:'⚽ GRAN FINAL',k:'fin'};
+  // 'fifa.world' slug + group note → group stage
+  if(g.includes('group '))                    return{l:'Fase de Grupos',k:'grp'};
+  // Date fallback (all June = groups; July by day)
   const d=new Date(m.date), mo=d.getUTCMonth(), dy=d.getUTCDate();
-  if(mo===5){if(dy>=28)return{l:'Ronda de 32',k:'r32'};return{l:'Fase de Grupos',k:'grp'};}
+  if(mo===5)  return{l:'Fase de Grupos',k:'grp'};
   if(mo===6){
-    if(dy<=3) return{l:'Ronda de 32',k:'r32'};
-    if(dy<=7) return{l:'Octavos de Final',k:'r16'};
-    if(dy<=11)return{l:'Cuartos de Final',k:'qf'};
-    if(dy<=15)return{l:'Semifinales',k:'sf'};
+    if(dy<=3)  return{l:'16avos de Final',k:'r32'};
+    if(dy<=7)  return{l:'Octavos de Final',k:'r16'};
+    if(dy<=11) return{l:'Cuartos de Final',k:'qf'};
+    if(dy<=15) return{l:'Semifinales',k:'sf'};
     if(dy===18)return{l:'Tercer Lugar',k:'3rd'};
     return{l:'⚽ GRAN FINAL',k:'fin'};
   }
-  return{l:'',k:'grp'};
+  return{l:'Fase de Grupos',k:'grp'};
 }
+
+// Detecta partidos con equipos aún no definidos
+const isUndetermined=m=>{
+  const h=(m.home?.name||'').toLowerCase(), a=(m.away?.name||'').toLowerCase();
+  const und=s=>s.includes('place')||s.includes('winner')||s.includes('group ')
+              ||s.includes('runner')||s.includes('3rd')||s.includes('tbd');
+  return und(h)||und(a);
+};
 
 function cntEv(m,type){return(m.events||[]).filter(e=>e.type===type).length;}
 
@@ -510,12 +602,15 @@ function card(m){
 function renderCal(all){
   const el=document.getElementById('cal-list');
   const today=todayK();
-  const fmap={HOY:null,TODOS:null,GRUPOS:'grp','32AVOS':'r32','16AVOS':'r16',CUARTOS:'qf',SEMIS:'sf',FINAL:'fin'};
+  const fmap={HOY:null,TODOS:null,GRUPOS:'grp','32AVOS':'r32','16AVOS':'r16',CUARTOS:'qf','SEMIS':'sf','3LUGAR':'3rd'};
 
   let ms=all;
   if(calFilter==='HOY') ms=all.filter(m=>mxKey(m.date)===today);
   else if(calFilter==='GRUPOS') ms=all.filter(m=>round(m).k==='grp');
-  else if(fmap[calFilter]) ms=all.filter(m=>round(m).k===fmap[calFilter]);
+  else if(fmap[calFilter]){
+    const k=fmap[calFilter];
+    ms=all.filter(m=>round(m).k===k && !isUndetermined(m));
+  }
 
   if(!ms.length){
     el.innerHTML=`<div class="empty"><p>${calFilter==='HOY'?'No hay partidos hoy':'Sin partidos en este filtro'}</p></div>`;
@@ -692,16 +787,6 @@ function renderSemis(all){
 
   html+=`<div class="bracket">
     <div class="br-col">${bMatch(sf1,'SEMI 1')}</div>
-    <div class="br-conn"><div class="bc-t"></div><div class="bc-b"></div></div>
-    <div style="display:flex;align-items:center">
-      <div class="br-final">
-        <div class="brf-lbl">🏆 GRAN FINAL · 19 Jul<br>MetLife Stadium · NY/NJ</div>
-        <div class="br-team"><span class="br-tbd">Ganador Semi 1</span><span class="br-sc">–</span></div>
-        <div class="brf-vs">VS</div>
-        <div class="br-team"><span class="br-tbd">Ganador Semi 2</span><span class="br-sc">–</span></div>
-      </div>
-    </div>
-    <div class="br-conn2"><div class="bc2-t"></div><div class="bc2-b"></div></div>
     <div class="br-col">${bMatch(sf2,'SEMI 2')}</div>
   </div>`;
 
@@ -712,12 +797,60 @@ function renderSemis(all){
     semis.forEach(m=>{html+=card(m);});
   }
 
-  if(fin){
-    html+=`<div class="sh"><h2>⚽ Gran Final – 19 Jul</h2><div class="ln"></div></div>`;
-    html+=card(fin);
+  el.innerHTML=html;
+}
+
+/* ── RENDER FINAL ───────────────────────────────────────── */
+function renderFinal(all){
+  const el=document.getElementById('panel-final');
+  const fin=all.find(m=>round(m).k==='fin'&&!isUndetermined(m));
+  const done=fin&&isDone(fin), live=fin&&isLive(fin);
+
+  const teamBlock=(t,align)=>{
+    if(!t||!t.id) return`<div class="fn-team"><div class="fn-tbd">Por definir</div></div>`;
+    const won=done&&t.winner;
+    return`<div class="fn-team ${won?'fn-winner':''}">
+      <img class="fn-logo" src="${t.logo||''}" onerror="this.style.display='none'">
+      <div class="fn-tname">${t.name}</div>
+      <div class="fn-tabbr">${t.abbr}</div>
+      ${won?'<div class="fn-crown">👑 CAMPEÓN</div>':''}
+    </div>`;
+  };
+
+  let scoreHtml='';
+  if(fin&&(done||live)){
+    scoreHtml=`<div class="fn-score-wrap">
+      <div class="fn-score">${fin.home.score||'0'}</div>
+      <div class="fn-dash">–</div>
+      <div class="fn-score">${fin.away.score||'0'}</div>
+    </div>`;
+  } else {
+    const dt=fin?`<div class="fn-datetime">${mxDate(fin.date)}<br>${mxTime(fin.date)}</div>`:'<div class="fn-datetime">19 Jul 2026 · Por confirmar</div>';
+    scoreHtml=`<div class="fn-vs-wrap">${dt}<div class="fn-vs-txt">VS</div></div>`;
   }
 
-  el.innerHTML=html;
+  const venue=fin?`🏟 ${[fin.venue,fin.city,fin.country].filter(Boolean).join(' · ')}`:'🏟 MetLife Stadium · East Rutherford, NJ · USA';
+
+  el.innerHTML=`
+  <div class="fn-hero">
+    <div class="fn-stars">★ ★ ★ ★ ★ ★ ★ ★</div>
+    <div class="fn-title">⚽ GRAN FINAL</div>
+    <div class="fn-subtitle">FIFA WORLD CUP 2026™</div>
+    <div class="fn-trophy">${done?'🏆':'🏆'}</div>
+    <div class="fn-card">
+      ${teamBlock(fin?.home,'left')}
+      ${scoreHtml}
+      ${teamBlock(fin?.away,'right')}
+    </div>
+    <div class="fn-venue">${venue}</div>
+    ${live?`<div class="fn-live"><span class="live-dot"></span> EN VIVO · ${fin.status.clock||''}</div>`:''}
+    ${done&&fin?`<div class="fn-events">${(fin.events||[]).map(ev=>{
+      const icon=ev.type==='goal'?'⚽':ev.type==='own_goal'?'⚽(PP)':ev.type==='penalty'?'⚽(P)':ev.type==='yellow_card'?'🟨':'🟥';
+      const side=ev.team_id===fin.home.id?'fn-ev-home':'fn-ev-away';
+      return`<div class="fn-ev ${side}">${icon} ${ev.minute}' ${ev.player}</div>`;
+    }).join('')}</div>`:''}
+    ${!fin?`<div class="fn-pending">El campeón del mundo se coronará el<br><strong>19 de Julio de 2026</strong></div>`:''}
+  </div>`;
 }
 
 /* ── TABS ───────────────────────────────────────────────── */
@@ -757,6 +890,7 @@ function renderAll(){
   if(activeTab==='mexico')     renderMx(allMatches);
   if(activeTab==='grupos')     renderGrupos(allMatches);
   if(activeTab==='semifinales')renderSemis(allMatches);
+  if(activeTab==='final')      renderFinal(allMatches);
 }
 
 /* ── FETCH ──────────────────────────────────────────────── */
@@ -848,49 +982,4 @@ function pitchGrid(team){
   }
 
   return `<div class="lu-team">
-    <div class="lu-hdr">
-      <img class="lu-logo" src="${team.team_logo||''}" onerror="this.style.display='none'">
-      <span><strong>${team.team_abbr}</strong>&nbsp;·&nbsp;${team.formation||'–'}</span>
-    </div>
-    <div class="lu-pitch">${display.map(pRow).join('')}</div>
-    ${bench?`<div class="lu-bench"><span class="bch-lbl">Banca: </span>${bench}</div>`:''}
-    ${legend}
-    ${perfHtml}
-  </div>`;
-}
-
-async function toggleLU(mid){
-  const btn=document.getElementById(`lu-btn-${mid}`);
-  const sec=document.getElementById(`lu-sec-${mid}`);
-  if(sec.style.display==='block'){
-    sec.style.display='none';
-    btn.textContent='👥 Ver Alineación';
-    return;
-  }
-  btn.textContent='⏳ Cargando...';btn.disabled=true;
-  try{
-    if(!_luCache[mid]){
-      const r=await fetch(`/api/match/${mid}/lineup`);
-      if(!r.ok)throw new Error();
-      _luCache[mid]=await r.json();
-    }
-    const d=_luCache[mid];
-    if(!d||!d.length||!d[0].starters||!d[0].starters.length){
-      sec.innerHTML='<p style="text-align:center;color:var(--t3);font-size:.75rem;padding:10px">Alineación no disponible aún</p>';
-    } else {
-      sec.innerHTML=`<div class="lu-wrap">${d.map(pitchGrid).join('')}</div>`;
-    }
-    sec.style.display='block';
-    btn.textContent='👥 Ocultar Alineación';
-  } catch(e){
-    sec.innerHTML='<p style="text-align:center;color:var(--t3);font-size:.75rem;padding:10px">No disponible</p>';
-    sec.style.display='block';
-    btn.textContent='👥 Ver Alineación';
-  }
-  btn.disabled=false;
-}
-
-fetch_();
-</script>
-</body>
-</html>
+   
