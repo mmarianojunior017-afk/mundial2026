@@ -609,7 +609,7 @@ function renderCal(all){
   else if(calFilter==='GRUPOS') ms=all.filter(m=>round(m).k==='grp');
   else if(fmap[calFilter]){
     const k=fmap[calFilter];
-    ms=all.filter(m=>round(m).k===k && !isUndetermined(m));
+    ms=all.filter(m=>round(m).k===k);
   }
 
   if(!ms.length){
