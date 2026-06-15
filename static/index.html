@@ -981,5 +981,53 @@ function pitchGrid(team){
     perfHtml=`<div class="lu-perf"><div class="perf-lbl">⭐ Rendimiento</div>${rows}</div>`;
   }
 
-  return `<div class="lu-team">
-   
+    return `<div class="lu-team">
+    <div class="lu-hdr">
+      <img class="lu-logo" src="${team.logo||''}" onerror="this.style.display='none'" alt="">
+      <span>${team.name||''}</span>
+      <span style="margin-left:auto;font-size:.65rem;color:var(--t3)">${team.formation||''}</span>
+    </div>
+    <div class="lu-pitch">${display.map(pRow).join('')}</div>
+    ${legend}
+    <div class="lu-bench"><span class="bch-lbl">Banca:</span> ${bench||'–'}</div>
+    ${perfHtml}
+  </div>`;
+}
+
+/* ── TOGGLE LINEUP ──────────────────────────────────────── */
+async function toggleLU(mid){
+  const btn=document.getElementById(`lu-btn-${mid}`);
+  const sec=document.getElementById(`lu-sec-${mid}`);
+  if(sec.style.display==='block'){
+    sec.style.display='none';
+    btn.textContent='👥 Ver Alineación';
+    return;
+  }
+  btn.disabled=true;btn.textContent='Cargando...';
+  try{
+    if(_luCache[mid]){
+      sec.innerHTML=_luCache[mid];
+    } else {
+      const r=await fetch(`${BASE_URL}/api/match/${mid}/lineup`);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data=await r.json();
+      const h=(data.teams||[]).map(pitchGrid).join('');
+      _luCache[mid]=h;
+      sec.innerHTML=h;
+    }
+    sec.style.display='block';
+    btn.textContent='👥 Ocultar Alineación';
+  }catch(e){
+    console.error('lineup error',e);
+    sec.innerHTML=`<div class="empty"><p>No disponible aún</p></div>`;
+    sec.style.display='block';
+    btn.textContent='👥 Ver Alineación';
+  }
+  btn.disabled=false;
+}
+
+/* ── INIT ───────────────────────────────────────────────── */
+fetch_();
+</script>
+</body>
+</html>
