@@ -413,8 +413,8 @@ a{color:inherit;text-decoration:none}
       <button class="fbtn active" data-f="HOY">HOY</button>
       <button class="fbtn" data-f="TODOS">Todos</button>
       <button class="fbtn" data-f="GRUPOS">Grupos</button>
-      <button class="fbtn" data-f="32AVOS">32avos</button>
-      <button class="fbtn" data-f="16AVOS">16avos</button>
+      <button class="fbtn" data-f="32AVOS">16avos</button>
+      <button class="fbtn" data-f="16AVOS">Octavos</button>
       <button class="fbtn" data-f="CUARTOS">Cuartos</button>
       <button class="fbtn" data-f="SEMIS">Semis</button>
       <button class="fbtn" data-f="3LUGAR">3er Lugar</button>
@@ -468,7 +468,7 @@ function round(m){
   const s=(m.slug||'').toLowerCase();
   const g=(m.group||'').toLowerCase(); // altGameNote e.g. "FIFA World Cup, Group J"
   if(s==='group-stage')                       return{l:'Fase de Grupos',k:'grp'};
-  if(s==='round-of-32')                       return{l:'Ronda de 32',k:'r32'};
+  if(s==='round-of-32')                       return{l:'16avos de Final',k:'r32'};
   if(s==='round-of-16')                       return{l:'Octavos de Final',k:'r16'};
   if(s.includes('quarter'))                   return{l:'Cuartos de Final',k:'qf'};
   if(s==='semifinal'||s.includes('semi-'))    return{l:'Semifinales',k:'sf'};
@@ -480,7 +480,7 @@ function round(m){
   const d=new Date(m.date), mo=d.getUTCMonth(), dy=d.getUTCDate();
   if(mo===5)  return{l:'Fase de Grupos',k:'grp'};
   if(mo===6){
-    if(dy<=3)  return{l:'Ronda de 32',k:'r32'};
+    if(dy<=3)  return{l:'16avos de Final',k:'r32'};
     if(dy<=7)  return{l:'Octavos de Final',k:'r16'};
     if(dy<=11) return{l:'Cuartos de Final',k:'qf'};
     if(dy<=15) return{l:'Semifinales',k:'sf'};
