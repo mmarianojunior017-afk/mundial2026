@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1011,7 +1011,8 @@ async function toggleLU(mid){
       const r=await fetch(`${BASE_URL}/api/match/${mid}/lineup`);
       if(!r.ok) throw new Error(`HTTP ${r.status}`);
       const data=await r.json();
-      const h=`<div class="lu-wrap">${(data.teams||[]).map(pitchGrid).join('')}</div>`;
+      const teams=Array.isArray(data)?data:(data.teams||[]);
+      const h=`<div class="lu-wrap">${teams.map(pitchGrid).join('')}</div>`;
       _luCache[mid]=h;
       sec.innerHTML=h;
     }
